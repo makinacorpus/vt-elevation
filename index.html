@@ -126,10 +126,10 @@ var map = new mapboxgl.Map({
     container: 'map',
     style: undefined,
     center: [0.5, 42.85],
-    zoom: 12,
+    zoom: 11,
     minZoom: 10,
     attributionControl: false,
-    maxBounds: [[0, 42], [1, 43]]
+    maxBounds: [[0, 42.7], [1, 43]]
 });
 
 var chart = c3.generate({
@@ -187,7 +187,7 @@ map.on('load', function() {
                 ['==', '$type', 'LineString']
             ],
             'paint': {
-                'line-width': 2,
+                'line-width': 4,
                 'line-color': '#1F77B4'
             },
             'interactive': true
@@ -226,7 +226,7 @@ var srtmStyle = {
             'tiles': [
                 'http://makinacorpus.github.io/vt-elevation/tiles/{z}/{x}/{y}.pbf'
             ],
-            'maxzoom': 13,
+            'maxzoom': 14,
             'minzoom': 10
         }
     },
