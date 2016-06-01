@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8' />
+    <title></title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <script src='lib/mapbox-gl.js'></script>
+    <script src='lib/turf.min.js'></script>
+    <script src='lib/chroma.js'></script>
+    <script src='lib/mapbox-gl-draw.js'></script>
+    <script src='lib/d3.min.js'></script>
+    <script src='lib/c3.min.js'></script>
+    <link href='lib/mapbox-gl.css' rel='stylesheet' />
+    <link href='lib/mapbox-gl-draw.css' rel='stylesheet' />
+    <link href='lib/c3.min.css' rel='stylesheet' />
+    <style>
+        body, html {
+            margin:0;
+            padding:0;
+            height: 100%;
+            width: 100%;
+        }
+
+        #map {
+            position:absolute;
+            top:0;
+            bottom:0;
+            width:100%;
+        }
+
+        #chart-container {
+            position: absolute!important;
+            bottom: 0;
+            width: 100%;
+            height: 30%;
+        }
+
+        #chart {
+            position: absolute!important;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #background {
+            width: 100%;
+            height: 100%;
+            background-color: rgba(227, 227, 227, 0.5);
+        }
+
+        .legend-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            padding: 0 10px;
+            margin-top: 10px;
+            z-index: 1;
+        }
+
+        .legend {
+            font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            background-color: rgba(255,255,255,0.8);
+            padding: 10px;
+            border-radius: 3px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.10);
+        }
+
+        .legend h4 {
+            margin: 0 0 10px;
+        }
+
+        .legend-key {
+            display: inline-block;
+            width: 20px;
+            height: 10px;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div id='map'></div>
+<div id='chart-container'>
+    <div id='background'></div>
+    <div id='chart'></div>
+</div>
+<div class='legend-container'>
+    <div id='legend' class='legend'>
+        <h4>Elevation</h4>
+        <div>
+            <span class='legend-key' style='background-color: #ffffe0;'></span>
+            <span id='legend-value-0'>0 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #ffd59b;'></span>
+            <span id='legend-value-0'>500 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #ffa474;'></span>
+            <span id='legend-value-0'>1&nbsp;000 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #f47461;'></span>
+            <span id='legend-value-0'>1&nbsp;500 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #db4551;'></span>
+            <span id='legend-value-0'>2&nbsp;000 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #b81b34;'></span>
+            <span id='legend-value-0'>2&nbsp;500 m</span>
+        </div>
+        <div>
+            <span class='legend-key' style='background-color: #8b0000;'></span>
+            <span id='legend-value-0'>3&nbsp;000 m</span>
+        </div>
+        <h4><a href='http://makina-corpus.com/' target='_blank'>Makina Corpus</a> - SRTM data</h4>
+    </div>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoiZnJlZGVyaWNib25pZmFzIiwiYSI6IlVrdmVYRXMifQ.Bij9bmCA3tHN3Eo--vnQHA';
+var map = new mapboxgl.Map({
+    interactive: true,
+    container: 'map',
+    style: undefined,
+    center: [0.5, 42.85],
+    zoom: 12,
+    minZoom: 10,
+    attributionControl: false,
+    maxBounds: [[0, 42], [1, 43]]
+});
+
+var chart = c3.generate({
+    bindto: '#chart',
+    data: {
+        columns: []
+    }
+});
+
+function remove_line(Draw) {
+    var features = Draw.getAll().features;
+    if (features.length > 1) {
+        Draw.delete(features[0].id);
+    }
+}
+
+function compute_elevation(Draw) {
+    var line = Draw.getAll().features[0];
+    var length = turf.lineDistance(line, 'kilometers');
+
+    var n = 100;
+    var step = length / n;
+    var x = ['x1'],
+        y = ['ele'];
+
+    for (var i = 0; i < n; i++) {
+        var along = turf.along(line, i * step, 'kilometers');
+        var elePoints = map.queryRenderedFeatures(
+            map.project(along.geometry.coordinates), {
+                filter: ['>', 'ele', 0]
+            }
+        );
+        if (elePoints[0]) {
+            x.push(Math.round(i * step * 100) / 100);
+            y.push(elePoints[0].properties.ele);
+        }
+    }
+    chart.load({
+        xs: {
+            'ele': 'x1'
+        },
+        columns: [
+            x,
+            y
+        ]
+    });
+}
+
+map.on('load', function() {
+    var Draw = mapboxgl.Draw({
+        styles: [{
+            'id': 'blue-line',
+            'type': 'line',
+            'filter': ['all',
+                ['==', '$type', 'LineString']
+            ],
+            'paint': {
+                'line-width': 2,
+                'line-color': '#1F77B4'
+            },
+            'interactive': true
+        }],
+        displayControlsDefault: false,
+        controls: {line_string: true}
+    });
+    map.addControl(Draw);
+    map.on('draw.modechange', function(e) {
+        switch (e.mode) {
+            case 'draw_line_string':
+                remove_line(Draw);
+                break;
+            case 'simple_select':
+                compute_elevation(Draw);
+                break;
+        }
+    });
+});
+
+var spectralScale = chroma.scale('Spectral').domain([0, 3000]);
+var spectralScale = chroma.scale('YlGnBu').domain([0, 3000]);
+var spectralScale = chroma.cubehelix().scale().domain([0, 3000]);
+var spectralScale = chroma.cubehelix().start(200).rotations(-0.5).gamma(0.8).lightness([0.3, 0.8]).scale().domain([0, 3000]);
+var spectralScale = chroma.bezier(['white', 'black']).scale().domain([0, 3000]);
+var spectralScale = chroma.scale('RdPu').domain([0, 3000]);
+var spectralScale = chroma.bezier(['lightyellow', 'orange', 'deeppink', 'darkred']).scale().domain([0, 3000]);
+
+var srtmStyle = {
+    'version': 8,
+    'name': 'SRTM',
+    'sources': {
+        'srtm': {
+            'attribution': '<a href="http://makina-corpus.com/" target="_blank">Makina Corpus</a> - SRTM data',
+            'type': 'vector',
+            'tiles': [
+                'http://makinacorpus.github.io/vt-elevation/tiles/{z}/{x}/{y}.pbf'
+            ],
+            'maxzoom': 13,
+            'minzoom': 10
+        }
+    },
+    'sprite': 'mapbox://sprites/fredericbonifas/cigwj549l000fajkm2cwj4gpx',
+    'glyphs': 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
+    'layers': [{
+        'id': 'background',
+        'type': 'background',
+        'paint': {
+            'background-color': '#dedede'
+        },
+        'interactive': true
+    }, {
+        'id': 'ele-empty',
+        'type': 'fill',
+        'source': 'srtm',
+        'source-layer': 'ele',
+        'layout': {},
+        'filter': [
+            '==',
+            'ele',
+            'NaN'
+        ],
+        'paint': {
+            'fill-color': '#ffffff'
+        },
+        'interactive': true
+    }],
+    'created': '2016-05-30T17:49:00.268Z',
+    'id': 'srtm-1',
+    'modified': '2016-05-30T17:49:00.268Z',
+    'owner': 'fredericbonifas',
+    'draft': false
+};
+
+for (var p = 0; p < 120; p++) {
+    var style = {
+        'id': 'ele-' + p,
+        'type': 'fill',
+        'source': 'srtm',
+        'source-layer': 'ele',
+        'layout': {},
+        'interactive': true,
+        'paint': {
+            'fill-color': spectralScale(p * 25).hex()
+        },
+        'filter': [
+            'all',
+            [
+                '>=',
+                'ele',
+                (p * 25)
+            ], [
+                '<',
+                'ele',
+                ((p + 1) * 25)
+            ]
+        ]
+    };
+    srtmStyle.layers.push(style);
+}
+
+map.setStyle(srtmStyle);
+
+</script>
+
+</body>
+</html>
